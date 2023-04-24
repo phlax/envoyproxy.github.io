@@ -3,6 +3,8 @@
 BAZEL="${BAZEL:-bazel}"
 OUTPUT_DIR="${1:-_site}"
 
+# no change
+
 if  [[ -e "$OUTPUT_DIR" ]]; then
     echo "Path to build the website (${OUTPUT_DIR}) exists, removing"
     rm -rf "${OUTPUT_DIR}"
