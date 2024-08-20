@@ -2,6 +2,7 @@ load("@envoy_toolshed//website:macros.bzl", "static_website")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 exports_files([
+    "pelicanconf.py",
     "requirements.txt",
 ])
 
