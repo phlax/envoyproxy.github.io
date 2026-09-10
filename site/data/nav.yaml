@@ -1,7 +1,3 @@
-- id: github
-  text: GitHub
-  url: https://github.com/envoyproxy/envoy
-
 - id: documentation
   text: Docs
   url: /docs

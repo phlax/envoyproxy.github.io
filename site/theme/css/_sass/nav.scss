@@ -50,3 +50,42 @@
   }
 
 }
+
+.nav-actions {
+  padding-top: 6px;
+  text-align: center;
+}
+
+.nav-icon {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.85;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    opacity: 1;
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-white;
+    outline-offset: 2px;
+  }
+}
+
+// Shared geometry with .envoy-docs-banner__icon* in docs-banner.css.
+.nav-icon__glyph {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  background-color: $color-white;
+}
+
+.nav-icon--github .nav-icon__glyph {
+  -webkit-mask: url("/theme/images/github.svg") no-repeat center / contain;
+  mask: url("/theme/images/github.svg") no-repeat center / contain;
+}

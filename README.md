@@ -12,7 +12,7 @@ list of versions comes from the manifest pinned as `envoy_archive_manifest` in `
 The edge function injects the shared docs banner assets (`/theme/css/docs-banner.css`,
 `/theme/js/docs-banner.js`) into all docs HTML pages, including `latest` and archived versions.
 Browser-side version metadata is served at `/docs/envoy/versions.json` and includes
-stable/archived releases plus the top nav links used in the banner dropdown.
+stable/archived releases plus the top nav links used in the docs banner.
 Archived edge responses are cached with
 `Netlify-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800`.
 

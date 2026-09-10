@@ -165,22 +165,31 @@
             <img src="/theme/images/envoy-logo.svg" alt="Envoy" />
           </a>
           <nav class="envoy-docs-banner__nav"><ul></ul></nav>
-          <div class="envoy-docs-banner__version">
-            <button type="button" class="envoy-docs-banner__version-button"
-                    aria-expanded="false" aria-haspopup="dialog" aria-controls="${MENU_ID}"
-                    aria-label="Documentation version: ${displayName(currentVersion)}. Switch version">
-              <span class="envoy-docs-banner__version-prefix">docs:</span> ${displayName(currentVersion)}
-            </button>
-            <div id="${MENU_ID}" class="envoy-docs-banner__menu" role="dialog"
-                 aria-label="Switch documentation version" hidden>
-              <input id="${SEARCH_ID}" class="envoy-docs-banner__search" type="search"
-                     placeholder="Search versions (e.g. 1.28)" autocomplete="off" spellcheck="false"
-                     role="combobox" aria-autocomplete="list" aria-expanded="true"
-                     aria-controls="${LIST_ID}" aria-label="Search documentation versions" />
-              <ul id="${LIST_ID}" class="envoy-docs-banner__list" role="listbox"
-                  aria-label="Envoy documentation versions"></ul>
-              <p class="envoy-docs-banner__hint">Older releases: type a version. <kbd>Shift</kbd>+<kbd>V</kbd> opens this menu.</p>
+          <div class="envoy-docs-banner__actions">
+            <div class="envoy-docs-banner__version">
+              <button type="button" class="envoy-docs-banner__version-button"
+                      aria-expanded="false" aria-haspopup="dialog" aria-controls="${MENU_ID}"
+                      aria-label="Documentation version: ${displayName(currentVersion)}. Switch version">
+                <span class="envoy-docs-banner__version-prefix">docs:</span> ${displayName(currentVersion)}
+              </button>
+              <div id="${MENU_ID}" class="envoy-docs-banner__menu" role="dialog"
+                   aria-label="Switch documentation version" hidden>
+                <input id="${SEARCH_ID}" class="envoy-docs-banner__search" type="search"
+                       placeholder="Search versions (e.g. 1.28)" autocomplete="off" spellcheck="false"
+                       role="combobox" aria-autocomplete="list" aria-expanded="true"
+                       aria-controls="${LIST_ID}" aria-label="Search documentation versions" />
+                <ul id="${LIST_ID}" class="envoy-docs-banner__list" role="listbox"
+                    aria-label="Envoy documentation versions"></ul>
+                <p class="envoy-docs-banner__hint">Older releases: type a version. <kbd>Shift</kbd>+<kbd>V</kbd> opens this menu.</p>
+              </div>
             </div>
+            <a class="envoy-docs-banner__icon envoy-docs-banner__icon--github"
+               href="https://github.com/envoyproxy/envoy"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="Envoy on GitHub (opens in a new tab)"
+               title="Envoy on GitHub">
+              <span class="envoy-docs-banner__icon-glyph" aria-hidden="true"></span>
+            </a>
           </div>
         </div>
       `;

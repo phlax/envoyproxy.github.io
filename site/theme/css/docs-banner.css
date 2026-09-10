@@ -127,7 +127,52 @@
 
 .envoy-docs-banner__version {
   position: relative;
-  justify-self: end;
+}
+
+.envoy-docs-banner__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  height: 100%;
+}
+
+.envoy-docs-banner__icon,
+.envoy-docs-banner__icon:link,
+.envoy-docs-banner__icon:visited {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  line-height: 1;
+  opacity: 0.85;
+  text-decoration: none;
+}
+
+.envoy-docs-banner__icon:hover,
+.envoy-docs-banner__icon:focus-visible {
+  color: inherit;
+  opacity: 1;
+  text-decoration: none;
+}
+
+.envoy-docs-banner__icon:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* Shared geometry with .nav-icon* in nav.scss. */
+.envoy-docs-banner__icon-glyph {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  background-color: #fff;
+}
+
+.envoy-docs-banner__icon--github .envoy-docs-banner__icon-glyph {
+  -webkit-mask: url("/theme/images/github.svg") no-repeat center / contain;
+  mask: url("/theme/images/github.svg") no-repeat center / contain;
 }
 
 .envoy-docs-banner__version-button {

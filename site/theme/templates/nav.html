@@ -18,4 +18,15 @@
       </ul>
     </nav>
   </div>
+  {% if show_logo != 'no' %}
+  <div class="col-sm-3 nav-actions">
+    <a class="nav-icon nav-icon--github"
+       href="https://github.com/envoyproxy/envoy"
+       target="_blank" rel="noopener noreferrer"
+       aria-label="Envoy on GitHub (opens in a new tab)"
+       title="Envoy on GitHub">
+      <span class="nav-icon__glyph" aria-hidden="true"></span>
+    </a>
+  </div>
+  {% endif %}
 </div>
