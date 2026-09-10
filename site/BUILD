@@ -1,6 +1,7 @@
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("@envoy_toolshed//website:macros.bzl", "static_website")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_files")
 
 filegroup(
     name = "config",
@@ -16,10 +17,31 @@ genrule(
     """,
 )
 
+# Latest docs are built into the site and never pass through the edge
+# function, so the banner snippet is injected here at packaging time.
+genrule(
+    name = "docs_with_banner",
+    srcs = ["@envoy-docs"],
+    outs = ["docs_with_banner.tar.gz"],
+    cmd = "$(location //site/tools:inject_banner) $(location @envoy-docs) $@ latest",
+    tools = ["//site/tools:inject_banner"],
+)
+
 pkg_tar(
     name = "docs",
     package_dir = "docs/envoy/latest",
-    deps = ["@envoy-docs"],
+    deps = [":docs_with_banner"],
+)
+
+pkg_files(
+    name = "docs_versions_json_file",
+    srcs = ["//site/data:versions_json"],
+    prefix = "docs/envoy",
+)
+
+pkg_tar(
+    name = "docs_versions_json",
+    srcs = [":docs_versions_json_file"],
 )
 
 label_flag(
@@ -46,7 +68,7 @@ static_website(
     data = "//site/data",
     extension = "tar.zst",
     theme = "//site/theme",
-    deps = select({
+    deps = [":docs_versions_json"] + select({
         ":disable_docs_latest": [],
         "//conditions:default": [":docs_latest"],
     }),

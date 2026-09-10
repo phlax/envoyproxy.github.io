@@ -29,6 +29,15 @@ import type { Context } from "https://edge.netlify.com";
 const ARCHIVE_BUCKET = "envoy-cncf-archive";
 const ARCHIVE_ORIGIN = `https://storage.googleapis.com/${ARCHIVE_BUCKET}/envoy/docs`;
 const SITE_PREFIX = "/docs/envoy/";
+const CDN_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800";
+const escapeHtmlAttribute = (value: string) =>
+  value.replaceAll("&", "&amp;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("'", "&#39;");
+const HTML_INJECTION = (version: string) =>
+  `<link rel="stylesheet" href="/theme/css/docs-banner.css" />\n<script defer src="/theme/js/docs-banner.js" data-envoy-docs-version="${escapeHtmlAttribute(version)}"></script>\n`;
 
 // Extensions a Sphinx html tree actually contains. Anything else is a
 // directory - notably `v1.39.1`, which contains dots but is not a file.
@@ -45,6 +54,8 @@ const hasExtension = (path: string): boolean => {
   if (dot < 0) return false;
   return FILE_EXTENSIONS.has(last.slice(dot + 1).toLowerCase());
 };
+const isArchiveVersion = (segment: string): boolean =>
+  /^(v)?[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/.test(segment);
 
 const CONDITIONAL_HEADERS = ["if-none-match", "if-modified-since"];
 const RESPONSE_HEADERS = [
@@ -58,6 +69,30 @@ const RESPONSE_HEADERS = [
 const fetchObject = (objectPath: string, headers: Headers) =>
   fetch(`${ARCHIVE_ORIGIN}/${objectPath}`, { headers });
 
+const injectIntoHead = (html: string, snippet: string): string => {
+  const lower = html.toLowerCase();
+  const idx = lower.indexOf("</head>");
+  if (idx < 0) {
+    return `${snippet}${html}`;
+  }
+  return `${html.slice(0, idx)}${snippet}${html.slice(idx)}`;
+};
+
+const cachedRedirect = (url: string): Response => {
+  const response = Response.redirect(url, 301);
+  const headers = new Headers(response.headers);
+  headers.set("netlify-cdn-cache-control", CDN_CACHE_CONTROL);
+  return new Response(response.body, {
+    status: response.status,
+    headers,
+  });
+};
+
+export const config = {
+  path: "/docs/envoy/*",
+  cache: "manual",
+};
+
 export default async (request: Request, context: Context) => {
   const url = new URL(request.url);
 
@@ -65,9 +100,15 @@ export default async (request: Request, context: Context) => {
     return context.next();
   }
 
-  // Belt and braces: `latest` is owned by the site build.
   const rel = url.pathname.slice(SITE_PREFIX.length);
-  if (rel === "latest" || rel.startsWith("latest/")) {
+  const version = rel.split("/", 1)[0];
+
+  // Belt and braces: `latest` and static docs data are owned by the site build.
+  if (
+    version === "latest" ||
+    version === "versions.json" ||
+    !isArchiveVersion(version)
+  ) {
     return context.next();
   }
 
@@ -75,20 +116,23 @@ export default async (request: Request, context: Context) => {
   // Netlify's "Pretty URLs" post-processing (see header comment above).
   if (url.pathname.endsWith("/index.html")) {
     url.pathname = url.pathname.slice(0, -"index.html".length);
-    return Response.redirect(url.toString(), 301);
+    return cachedRedirect(url.toString());
   }
   if (url.pathname.endsWith(".html")) {
     url.pathname = url.pathname.slice(0, -".html".length);
-    return Response.redirect(url.toString(), 301);
+    return cachedRedirect(url.toString());
   }
 
   // Forward only conditional-request headers, and only when present: GCS
   // rejects an empty `If-Modified-Since:` with InvalidArgument. Never forward
   // cookies or auth to the bucket.
+  const shouldForwardConditionals = hasExtension(rel);
   const upstreamHeaders = new Headers();
-  for (const name of CONDITIONAL_HEADERS) {
-    const value = request.headers.get(name);
-    if (value) upstreamHeaders.set(name, value);
+  if (shouldForwardConditionals) {
+    for (const name of CONDITIONAL_HEADERS) {
+      const value = request.headers.get(name);
+      if (value) upstreamHeaders.set(name, value);
+    }
   }
 
   let upstream: Response;
@@ -105,7 +149,7 @@ export default async (request: Request, context: Context) => {
       const dir = await fetchObject(`${rel}/index.html`, new Headers());
       if (dir.ok) {
         url.pathname += "/";
-        return Response.redirect(url.toString(), 301);
+        return cachedRedirect(url.toString());
       }
     }
   }
@@ -114,6 +158,22 @@ export default async (request: Request, context: Context) => {
   for (const name of RESPONSE_HEADERS) {
     const value = upstream.headers.get(name);
     if (value) headers.set(name, value);
+  }
+
+  const contentType = upstream.headers.get("content-type") || "";
+  if (upstream.ok && contentType.startsWith("text/html")) {
+    const body = injectIntoHead(await upstream.text(), HTML_INJECTION(version));
+    headers.delete("content-length");
+    headers.delete("etag");
+    headers.set("netlify-cdn-cache-control", CDN_CACHE_CONTROL);
+    return new Response(body, {
+      status: upstream.status,
+      headers,
+    });
+  }
+
+  if (upstream.status >= 200 && upstream.status < 300) {
+    headers.set("netlify-cdn-cache-control", CDN_CACHE_CONTROL);
   }
 
   return new Response(upstream.body, {
