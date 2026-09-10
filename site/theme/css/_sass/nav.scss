@@ -54,6 +54,14 @@
 .nav-actions {
   padding-top: 6px;
   text-align: center;
+
+  @media (min-width: $screen-sm-min) {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 85px;
+    padding-top: 0;
+  }
 }
 
 .nav-icon {
