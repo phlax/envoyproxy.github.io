@@ -3,7 +3,8 @@
   // state so layout classes, old banner nodes, and document listeners are
   // removed before a replacement instance mounts.
   const stateKey = "__envoyDocsBannerState";
-  const currentScript = document.currentScript;
+  const currentScript = Array.from(document.scripts).reverse().find((script) =>
+    script.src.includes("/theme/js/docs-banner.js"));
   const currentPath = location.pathname;
   const mountTarget = (() => {
     const selector = currentScript?.dataset?.envoyDocsMount;
