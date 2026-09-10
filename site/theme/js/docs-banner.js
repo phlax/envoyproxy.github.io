@@ -3,6 +3,16 @@
   // state so layout classes, old banner nodes, and document listeners are
   // removed before a replacement instance mounts.
   const stateKey = "__envoyDocsBannerState";
+  const currentScript = document.currentScript;
+  const currentPath = location.pathname;
+  const mountTarget = (() => {
+    const selector = currentScript?.dataset?.envoyDocsMount;
+    if (selector) {
+      return document.querySelector(selector);
+    }
+    return document.querySelector("[data-envoy-docs-version-mount]");
+  })();
+  const mountMode = mountTarget instanceof Element;
   const previousState = globalThis[stateKey];
   if (previousState?.controller instanceof AbortController) {
     previousState.controller.abort();
@@ -25,17 +35,6 @@
   const LIST_ID = "envoy-docs-banner-version-list";
   const MENU_ID = "envoy-docs-banner-version-menu";
   const SEARCH_ID = "envoy-docs-banner-version-search";
-
-  const currentScript = document.currentScript;
-  const currentPath = location.pathname;
-  const mountTarget = (() => {
-    const selector = currentScript?.dataset?.envoyDocsMount;
-    if (selector) {
-      return document.querySelector(selector);
-    }
-    return document.querySelector("[data-envoy-docs-version-mount]");
-  })();
-  const mountMode = mountTarget instanceof Element;
 
   const isEditableTarget = (target) => target instanceof Element &&
     (target.closest("input, textarea, select, [contenteditable='true']") !== null);
