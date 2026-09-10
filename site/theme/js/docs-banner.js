@@ -5,13 +5,12 @@
   const stateKey = "__envoyDocsBannerState";
   const currentScript = document.currentScript instanceof HTMLScriptElement
     ? document.currentScript
-    : Array.from(document.scripts).reverse().find((script) =>
-      script.src.includes("/theme/js/docs-banner.js"));
+    : null;
   const currentPath = location.pathname;
+  const mountSelector = currentScript?.dataset?.envoyDocsMount;
   const mountTarget = (() => {
-    const selector = currentScript?.dataset?.envoyDocsMount;
-    if (selector) {
-      return document.querySelector(selector);
+    if (mountSelector) {
+      return document.querySelector(mountSelector);
     }
     return document.querySelector("[data-envoy-docs-version-mount]");
   })();
@@ -35,9 +34,10 @@
   const DOCS_PREFIX = "/docs/envoy/";
   const VERSIONS_URL = `${DOCS_PREFIX}versions.json`;
   const OPEN_SHORTCUT = "V";
-  const LIST_ID = "envoy-docs-banner-version-list";
-  const MENU_ID = "envoy-docs-banner-version-menu";
-  const SEARCH_ID = "envoy-docs-banner-version-search";
+  const instanceId = `envoy-docs-banner-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const LIST_ID = `${instanceId}-version-list`;
+  const MENU_ID = `${instanceId}-version-menu`;
+  const SEARCH_ID = `${instanceId}-version-search`;
 
   const isEditableTarget = (target) => target instanceof Element &&
     (target.closest("input, textarea, select, [contenteditable='true']") !== null);
@@ -84,7 +84,7 @@
   };
 
   const currentVersion = normalizeVersion(
-    currentScript?.dataset?.envoyDocsVersion || readVersionFromPath() || "",
+    readVersionFromPath() || "",
   );
   const hasCurrentVersion = Boolean(currentVersion);
 
