@@ -1,5 +1,5 @@
 - id: github
-  text: Github
+  text: GitHub
   url: https://github.com/envoyproxy/envoy
 
 - id: documentation

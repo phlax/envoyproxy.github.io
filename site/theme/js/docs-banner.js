@@ -1,4 +1,14 @@
 (() => {
+  // The banner can be injected more than once into docs HTML; reuse a shared
+  // controller so document-level listeners are replaced instead of duplicated.
+  const controllerKey = "__envoyDocsBannerListeners";
+  const previousController = globalThis[controllerKey];
+  if (previousController instanceof AbortController) {
+    previousController.abort();
+  }
+  const controller = new AbortController();
+  globalThis[controllerKey] = controller;
+
   const DOCS_PREFIX = "/docs/envoy/";
   const VERSIONS_URL = `${DOCS_PREFIX}versions.json`;
   const OPEN_SHORTCUT = "V";
@@ -217,7 +227,15 @@
 
           optionLink.appendChild(label);
           optionLink.appendChild(meta);
-          optionLink.addEventListener("click", () => closeMenu({ restoreFocus: false }));
+          optionLink.addEventListener("click", (event) => {
+            if (
+              event instanceof MouseEvent &&
+              (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+            ) {
+              return;
+            }
+            closeMenu({ restoreFocus: false });
+          });
           item.appendChild(optionLink);
           list.appendChild(item);
         });
@@ -268,7 +286,7 @@
         } else {
           openMenu();
         }
-      });
+      }, { signal: controller.signal });
 
       document.addEventListener("click", (event) => {
         if (!isOpen) {
@@ -277,7 +295,7 @@
         if (event.target instanceof Node && !banner.contains(event.target)) {
           closeMenu({ restoreFocus: false });
         }
-      });
+      }, { signal: controller.signal });
 
       document.addEventListener("keydown", (event) => {
         if (
