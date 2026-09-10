@@ -1,13 +1,22 @@
 (() => {
-  // The banner can be injected more than once into docs HTML; reuse a shared
-  // controller so document-level listeners are replaced instead of duplicated.
-  const controllerKey = "__envoyDocsBannerListeners";
-  const previousController = globalThis[controllerKey];
-  if (previousController instanceof AbortController) {
-    previousController.abort();
+  // The banner can be injected more than once into docs HTML; reuse shared
+  // state so layout classes, old banner nodes, and document listeners are
+  // removed before a replacement instance mounts.
+  const stateKey = "__envoyDocsBannerState";
+  const previousState = globalThis[stateKey];
+  if (previousState?.controller instanceof AbortController) {
+    previousState.controller.abort();
+  }
+  if (typeof previousState?.cleanup === "function") {
+    previousState.cleanup();
   }
   const controller = new AbortController();
-  globalThis[controllerKey] = controller;
+  const cleanup = () => {
+    document.querySelector(".envoy-docs-banner")?.remove();
+    document.body.classList.remove("envoy-has-site-banner", "envoy-shell-topbar", "envoy-shell-rtd");
+  };
+  controller.signal.addEventListener("abort", cleanup, { once: true });
+  globalThis[stateKey] = { controller, cleanup };
 
   const DOCS_PREFIX = "/docs/envoy/";
   const VERSIONS_URL = `${DOCS_PREFIX}versions.json`;
@@ -39,13 +48,18 @@
     return segment ? `/${segment}` : "/";
   })();
 
-  const isNavLinkActive = (link) => {
-    if (!link?.url || isExternalUrl(link.url)) {
+  const matchesNavPath = (navUrl) => {
+    if (!navUrl || isExternalUrl(navUrl)) {
       return false;
     }
-    return currentSection === "/docs"
-      ? link.url === "/docs"
-      : link.url === currentSection;
+    const normalized = navUrl === "/" ? "/" : navUrl.replace(/\/+$/, "");
+    return normalized === "/"
+      ? currentPath === "/"
+      : currentSection === normalized || currentPath === normalized || currentPath.startsWith(`${normalized}/`);
+  };
+
+  const isNavLinkActive = (link) => {
+    return matchesNavPath(link?.url);
   };
 
   const readVersionFromPath = () => {
@@ -384,9 +398,9 @@
         }
       }, { signal: controller.signal });
 
-      document.querySelector(".envoy-docs-banner")?.remove();
-      document.body.classList.add("envoy-has-site-banner");
       const hasTopbarShell = document.querySelector(".envoy-doc-topbar") !== null;
+      cleanup();
+      document.body.classList.add("envoy-has-site-banner");
       document.body.classList.toggle("envoy-shell-topbar", hasTopbarShell);
       document.body.classList.toggle("envoy-shell-rtd", !hasTopbarShell);
       const mountPoint = document.getElementById("envoy-docs-banner") || banner;
