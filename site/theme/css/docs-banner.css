@@ -1,6 +1,6 @@
 /* Site banner injected into docs pages by netlify/edge-functions/docs-archive.ts.
    Geometry mirrors the site header (header.scss / nav.scss): 85px bar, 40px
-   side padding, bootstrap 25/50/25 columns (logo | nav | version).
+   side padding, bootstrap 25/50/25 columns (logo | nav | actions).
 
    Docs pages do not load the site font (base.html pulls Source Sans Pro from
    Google Fonts; the Sphinx themes ship Lato / Roboto Slab), so without this
