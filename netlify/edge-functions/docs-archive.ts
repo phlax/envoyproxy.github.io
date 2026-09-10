@@ -201,19 +201,12 @@ export default async (request: Request, context: Context) => {
 
     const tiers = buildTiers(strippedRelPath);
     const tierResults = await Promise.all(
-      tiers.map(async (tier, index) => {
+      tiers.map(async (tier) => {
         const candidates = candidateObjectPaths(tier);
-        try {
-          const hit = await Promise.any(
-            candidates.map(async (candidate) => {
-              if (await headExists(candidate)) return candidate;
-              throw new Error("not found");
-            }),
-          );
-          return { index, hit };
-        } catch {
-          return null;
-        }
+        const checks = await Promise.all(candidates.map((candidate) => headExists(candidate)));
+        const hitIndex = checks.findIndex((exists) => exists);
+        if (hitIndex < 0) return null;
+        return { hit: candidates[hitIndex] };
       }),
     );
 
