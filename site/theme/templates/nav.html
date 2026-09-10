@@ -1,6 +1,6 @@
 <div class="row">
   <div class="col-sm-3 logo">
-    {% if active_page != 'home' and show_logo != 'no' %}
+    {% if show_logo != 'no' %}
     <a href="/">
       <img src="/theme/images/envoy-logo.svg"
            alt="Envoy">
@@ -20,6 +20,9 @@
   </div>
   {% if show_logo != 'no' %}
   <div class="col-sm-3 nav-actions">
+    {% if active_page == 'documentation' %}
+    <div class="nav-version" data-envoy-docs-version-mount></div>
+    {% endif %}
     <a class="nav-icon nav-icon--github"
        href="https://github.com/envoyproxy/envoy"
        target="_blank" rel="noopener noreferrer"

@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 
 {% block js_post %}
+{% if active_page == 'documentation' %}
+<link rel="stylesheet" href="{{SITEURL}}/theme/css/docs-banner.css">
+<script defer src="{{SITEURL}}/theme/js/docs-banner.js"></script>
+{% endif %}
 <script src="{{SITEURL}}/theme/js/bootstrap.bundle.min.js"></script>
 {% endblock js_post %}
