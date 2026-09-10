@@ -17,20 +17,10 @@ genrule(
     """,
 )
 
-# Latest docs are built into the site and never pass through the edge
-# function, so the banner snippet is injected here at packaging time.
-genrule(
-    name = "docs_with_banner",
-    srcs = ["@envoy-docs"],
-    outs = ["docs_with_banner.tar.gz"],
-    cmd = "$(location //site/tools:inject_banner) $(location @envoy-docs) $@ latest",
-    tools = ["//site/tools:inject_banner"],
-)
-
 pkg_tar(
     name = "docs",
     package_dir = "docs/envoy/latest",
-    deps = [":docs_with_banner"],
+    deps = ["@envoy-docs"],
 )
 
 pkg_files(

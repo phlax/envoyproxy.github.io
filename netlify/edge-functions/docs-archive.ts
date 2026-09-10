@@ -21,8 +21,8 @@
 //   /docs/envoy/v1.34.1/configuration/    -> proxy .../configuration/index.html
 //   /docs/envoy/v1.34.1/_static/foo.css   -> proxy as-is
 //
-// `/docs/envoy/latest/` is not handled here; it is built into the site and
-// matched by the redirect rule in netlify.toml before this function runs.
+// `/docs/envoy/latest/` is served by Netlify static hosting and decorated here
+// using `context.next()`, so latest and archived pages use the same injection.
 
 import type { Context } from "https://edge.netlify.com";
 
@@ -53,6 +53,13 @@ const hasExtension = (path: string): boolean => {
   const dot = last.lastIndexOf(".");
   if (dot < 0) return false;
   return FILE_EXTENSIONS.has(last.slice(dot + 1).toLowerCase());
+};
+const extension = (path: string): string | null => {
+  const last = path.slice(path.lastIndexOf("/") + 1);
+  const dot = last.lastIndexOf(".");
+  if (dot < 0) return null;
+  const ext = last.slice(dot + 1).toLowerCase();
+  return FILE_EXTENSIONS.has(ext) ? ext : null;
 };
 const isArchiveVersion = (segment: string): boolean =>
   /^(v)?[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/.test(segment);
@@ -88,6 +95,35 @@ const cachedRedirect = (url: string): Response => {
   });
 };
 
+const decorate = async (upstream: Response, version: string): Promise<Response> => {
+  const headers = new Headers();
+  for (const name of RESPONSE_HEADERS) {
+    const value = upstream.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+
+  const contentType = upstream.headers.get("content-type") || "";
+  if (upstream.ok && contentType.startsWith("text/html")) {
+    const body = injectIntoHead(await upstream.text(), HTML_INJECTION(version));
+    headers.delete("content-length");
+    headers.delete("etag");
+    headers.set("netlify-cdn-cache-control", CDN_CACHE_CONTROL);
+    return new Response(body, {
+      status: upstream.status,
+      headers,
+    });
+  }
+
+  if (upstream.status >= 200 && upstream.status < 300) {
+    headers.set("netlify-cdn-cache-control", CDN_CACHE_CONTROL);
+  }
+
+  return new Response(upstream.body, {
+    status: upstream.status,
+    headers,
+  });
+};
+
 export const config = {
   path: "/docs/envoy/*",
   cache: "manual",
@@ -103,12 +139,16 @@ export default async (request: Request, context: Context) => {
   const rel = url.pathname.slice(SITE_PREFIX.length);
   const version = rel.split("/", 1)[0];
 
-  // Belt and braces: `latest` and static docs data are owned by the site build.
-  if (
-    version === "latest" ||
-    version === "versions.json" ||
-    !isArchiveVersion(version)
-  ) {
+  if (version === "latest") {
+    const latestRel = rel.slice("latest".length).replace(/^\//, "");
+    const ext = extension(latestRel);
+    if (ext && ext !== "html" && ext !== "htm") {
+      return context.next();
+    }
+    return decorate(await context.next(), "latest");
+  }
+
+  if (version === "versions.json" || !isArchiveVersion(version)) {
     return context.next();
   }
 
@@ -154,30 +194,5 @@ export default async (request: Request, context: Context) => {
     }
   }
 
-  const headers = new Headers();
-  for (const name of RESPONSE_HEADERS) {
-    const value = upstream.headers.get(name);
-    if (value) headers.set(name, value);
-  }
-
-  const contentType = upstream.headers.get("content-type") || "";
-  if (upstream.ok && contentType.startsWith("text/html")) {
-    const body = injectIntoHead(await upstream.text(), HTML_INJECTION(version));
-    headers.delete("content-length");
-    headers.delete("etag");
-    headers.set("netlify-cdn-cache-control", CDN_CACHE_CONTROL);
-    return new Response(body, {
-      status: upstream.status,
-      headers,
-    });
-  }
-
-  if (upstream.status >= 200 && upstream.status < 300) {
-    headers.set("netlify-cdn-cache-control", CDN_CACHE_CONTROL);
-  }
-
-  return new Response(upstream.body, {
-    status: upstream.status,
-    headers,
-  });
+  return decorate(upstream, version);
 };

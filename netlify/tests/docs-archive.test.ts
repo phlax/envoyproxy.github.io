@@ -28,10 +28,74 @@ const context = {
   next: () => Promise.resolve(new Response("next", { status: 200 })),
 };
 
-Deno.test("latest/* passes through via context.next()", async () => {
-  const req = new Request("https://example.com/docs/envoy/latest/about_docs");
-  const res = await handler(req, context as never);
-  assertEquals(await res.text(), "next");
+Deno.test("latest HTML via context.next() is injected and fetch is not used", async () => {
+  await withFetchStub(
+    () => {
+      throw new Error("fetch should not be called for latest");
+    },
+    async () => {
+      const req = new Request("https://example.com/docs/envoy/latest/about_docs");
+      const latestContext = {
+        next: () =>
+          Promise.resolve(
+            new Response("<html><head><title>x</title></head><body>ok</body></html>", {
+              status: 200,
+              headers: {
+                "content-type": "text/html; charset=utf-8",
+                "content-length": "61",
+                "etag": "W/\"abc\"",
+                "cache-control": "public, max-age=60",
+              },
+            }),
+          ),
+      };
+      const res = await handler(req, latestContext as never);
+      const body = await res.text();
+      assertEquals(
+        body.includes('data-envoy-docs-version="latest"'),
+        true,
+      );
+      assertEquals(
+        body.indexOf("docs-banner.js") < body.indexOf("</head>"),
+        true,
+      );
+      assertEquals(res.headers.get("content-length"), null);
+      assertEquals(res.headers.get("etag"), null);
+      assertEquals(
+        res.headers.get("netlify-cdn-cache-control"),
+        "public, max-age=86400, stale-while-revalidate=604800",
+      );
+    },
+  );
+});
+
+Deno.test("latest non-HTML assets pass through untouched and fetch is not used", async () => {
+  await withFetchStub(
+    () => {
+      throw new Error("fetch should not be called for latest assets");
+    },
+    async () => {
+      const req = new Request("https://example.com/docs/envoy/latest/_static/foo.css");
+      const latestContext = {
+        next: () =>
+          Promise.resolve(
+            new Response("body { color: red }", {
+              status: 200,
+              headers: {
+                "content-type": "text/css",
+                "content-length": "18",
+                "etag": "W/\"asset\"",
+              },
+            }),
+          ),
+      };
+      const res = await handler(req, latestContext as never);
+      assertEquals(await res.text(), "body { color: red }");
+      assertEquals(res.headers.get("content-length"), "18");
+      assertEquals(res.headers.get("etag"), "W/\"asset\"");
+      assertEquals(res.headers.get("netlify-cdn-cache-control"), null);
+    },
+  );
 });
 
 Deno.test("/docs/envoy/versions.json passes through via context.next()", async () => {
