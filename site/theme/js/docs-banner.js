@@ -13,7 +13,7 @@
   const controller = new AbortController();
   const cleanup = () => {
     document.querySelector(".envoy-docs-banner")?.remove();
-    document.querySelectorAll("[data-envoy-docs-version-mounted]").forEach((node) => node.remove());
+    mountTarget?.querySelector("[data-envoy-docs-version-mounted]")?.remove();
     document.body.classList.remove("envoy-has-site-banner", "envoy-shell-topbar", "envoy-shell-rtd");
   };
   controller.signal.addEventListener("abort", cleanup, { once: true });
