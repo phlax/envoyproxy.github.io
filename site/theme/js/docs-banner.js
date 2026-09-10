@@ -44,24 +44,24 @@
     return;
   }
 
-  const relPathSegments = (() => {
+  const relPath = (() => {
     const rel = location.pathname.slice(DOCS_PREFIX.length);
     const parts = rel.split("/");
     parts.shift();
-    return parts.filter((segment) => segment.length > 0);
+    return parts.join("/");
   })();
 
   const withLeadingV = (version) => (version === "latest" ? version : `v${normalizeVersion(version)}`);
 
-  const buildDeepLink = (version) => {
+  const buildJumpLink = (version) => {
     const target = new URL(location.href);
-    target.pathname = `${DOCS_PREFIX}${withLeadingV(version)}/${relPathSegments.join("/")}`;
+    target.pathname = relPath
+      ? `${DOCS_PREFIX}_jump/${withLeadingV(version)}/${relPath}`
+      : `${DOCS_PREFIX}_jump/${withLeadingV(version)}/`;
     target.search = location.search;
     target.hash = location.hash;
     return `${target.pathname}${target.search}${target.hash}`;
   };
-
-  const buildRootLink = (version) => `${DOCS_PREFIX}${withLeadingV(version)}/`;
 
   fetch(VERSIONS_URL, { cache: "no-cache" })
     .then((response) => {
@@ -224,26 +224,7 @@
 
       const navigateTo = async (targetVersion) => {
         closeMenu();
-        const deepLink = buildDeepLink(targetVersion);
-        try {
-          const probe = await fetch(deepLink, {
-            method: "HEAD",
-            credentials: "same-origin",
-          });
-          if (probe.ok) {
-            location.assign(deepLink);
-            return;
-          }
-          if (probe.status === 404) {
-            location.assign(buildRootLink(targetVersion));
-            return;
-          }
-          location.assign(deepLink);
-          return;
-        } catch {
-          location.assign(deepLink);
-          return;
-        }
+        location.assign(buildJumpLink(targetVersion));
       };
 
       versionButton.addEventListener("click", () => {

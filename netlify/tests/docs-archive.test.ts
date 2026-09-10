@@ -282,3 +282,146 @@ Deno.test("404 and 304 responses are not modified", async () => {
     },
   );
 });
+
+Deno.test("_jump with invalid target version passes through", async () => {
+  const req = new Request("https://example.com/docs/envoy/_jump/not-a-version/configuration/");
+  const res = await handler(req, context as never);
+  assertEquals(await res.text(), "next");
+});
+
+Deno.test("_jump redirects to same page in archive version when it exists", async () => {
+  await withFetchStub(
+    (url, init) => {
+      assertEquals(init?.method, "HEAD");
+      if (
+        url ===
+          "https://storage.googleapis.com/envoy-cncf-archive/envoy/docs/v1.34.1/configuration/http/http_filters/router_filter.html"
+      ) {
+        return new Response(null, { status: 200 });
+      }
+      return new Response(null, { status: 404 });
+    },
+    async () => {
+      const req = new Request(
+        "https://example.com/docs/envoy/_jump/v1.34.1/configuration/http/http_filters/router_filter?x=1",
+      );
+      const res = await handler(req, context as never);
+      assertEquals(res.status, 302);
+      assertEquals(
+        res.headers.get("location"),
+        "https://example.com/docs/envoy/v1.34.1/configuration/http/http_filters/router_filter?x=1",
+      );
+    },
+  );
+});
+
+Deno.test("_jump falls back to closest existing parent directory", async () => {
+  await withFetchStub(
+    (url, init) => {
+      assertEquals(init?.method, "HEAD");
+      if (
+        url ===
+          "https://storage.googleapis.com/envoy-cncf-archive/envoy/docs/v1.34.1/configuration/http/index.html"
+      ) {
+        return new Response(null, { status: 200 });
+      }
+      return new Response(null, { status: 404 });
+    },
+    async () => {
+      const req = new Request(
+        "https://example.com/docs/envoy/_jump/v1.34.1/configuration/http/missing/leaf",
+      );
+      const res = await handler(req, context as never);
+      assertEquals(res.status, 302);
+      assertEquals(
+        res.headers.get("location"),
+        "https://example.com/docs/envoy/v1.34.1/configuration/http/",
+      );
+    },
+  );
+});
+
+Deno.test("_jump falls back to target docs root when no tier exists", async () => {
+  await withFetchStub(
+    (_url, init) => {
+      assertEquals(init?.method, "HEAD");
+      return new Response(null, { status: 404 });
+    },
+    async () => {
+      const req = new Request(
+        "https://example.com/docs/envoy/_jump/v1.34.1/configuration/http/missing/leaf",
+      );
+      const res = await handler(req, context as never);
+      assertEquals(res.status, 302);
+      assertEquals(
+        res.headers.get("location"),
+        "https://example.com/docs/envoy/v1.34.1/",
+      );
+    },
+  );
+});
+
+Deno.test("_jump to latest probes with marker header and redirects", async () => {
+  await withFetchStub(
+    (url, init) => {
+      assertEquals(init?.method, "HEAD");
+      const headers = new Headers(init?.headers);
+      assertEquals(headers.get("x-envoy-docs-probe"), "1");
+      if (url === "https://example.com/docs/envoy/latest/about_docs.html") {
+        return new Response(null, { status: 200 });
+      }
+      return new Response(null, { status: 404 });
+    },
+    async () => {
+      const req = new Request("https://example.com/docs/envoy/_jump/latest/about_docs");
+      const res = await handler(req, context as never);
+      assertEquals(res.status, 302);
+      assertEquals(
+        res.headers.get("location"),
+        "https://example.com/docs/envoy/latest/about_docs",
+      );
+    },
+  );
+});
+
+Deno.test("_jump strips input index.html before tier resolution", async () => {
+  await withFetchStub(
+    (url, init) => {
+      assertEquals(init?.method, "HEAD");
+      if (url === "https://storage.googleapis.com/envoy-cncf-archive/envoy/docs/v1.34.1/configuration/http/index.html") {
+        return new Response(null, { status: 200 });
+      }
+      return new Response(null, { status: 404 });
+    },
+    async () => {
+      const req = new Request(
+        "https://example.com/docs/envoy/_jump/v1.34.1/configuration/http/index.html",
+      );
+      const res = await handler(req, context as never);
+      assertEquals(res.status, 302);
+      assertEquals(
+        res.headers.get("location"),
+        "https://example.com/docs/envoy/v1.34.1/configuration/http/",
+      );
+    },
+  );
+});
+
+Deno.test("latest HEAD probe marker bypasses decoration via context.next()", async () => {
+  await withFetchStub(
+    () => {
+      throw new Error("fetch should not be called for probe-marked latest HEAD");
+    },
+    async () => {
+      const req = new Request("https://example.com/docs/envoy/latest/about_docs.html", {
+        method: "HEAD",
+        headers: { "x-envoy-docs-probe": "1" },
+      });
+      const probeContext = {
+        next: () => Promise.resolve(new Response("probe-ok", { status: 200 })),
+      };
+      const res = await handler(req, probeContext as never);
+      assertEquals(await res.text(), "probe-ok");
+    },
+  );
+});
