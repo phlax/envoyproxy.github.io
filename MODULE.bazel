@@ -26,18 +26,18 @@ bazel_dep(name = "zstd", version = "1.5.7")
 
 git_override(
     module_name = "envoy",
-    commit = "041439d16f2e8694b1b0feb4bf6d6d6ec86e4167",
+    commit = "ab7934dd7be6d474a33526435768c1ba92a37471",
     remote = "https://github.com/envoyproxy/envoy",
 )
 git_override(
     module_name = "envoy_api",
-    commit = "041439d16f2e8694b1b0feb4bf6d6d6ec86e4167",
+    commit = "ab7934dd7be6d474a33526435768c1ba92a37471",
     remote = "https://github.com/envoyproxy/envoy",
     strip_prefix = "api",
 )
 git_override(
     module_name = "envoy-docs",
-    commit = "041439d16f2e8694b1b0feb4bf6d6d6ec86e4167",
+    commit = "ab7934dd7be6d474a33526435768c1ba92a37471",
     remote = "https://github.com/envoyproxy/envoy",
     strip_prefix = "docs",
 )
