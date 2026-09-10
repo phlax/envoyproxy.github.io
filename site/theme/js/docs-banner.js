@@ -1,12 +1,4 @@
 (() => {
-  const controllerKey = "__envoyDocsBannerListeners";
-  const previousController = globalThis[controllerKey];
-  if (previousController instanceof AbortController) {
-    previousController.abort();
-  }
-  const controller = new AbortController();
-  globalThis[controllerKey] = controller;
-
   const DOCS_PREFIX = "/docs/envoy/";
   const VERSIONS_URL = `${DOCS_PREFIX}versions.json`;
   const OPEN_SHORTCUT = "V";
@@ -16,15 +8,41 @@
   const QUERY_ID = "envoy-docs-banner-query";
 
   const currentScript = document.currentScript;
+  const currentPath = location.pathname;
 
   const isEditableTarget = (target) => target instanceof Element &&
     (target.closest("input, textarea, select, [contenteditable='true']") !== null);
 
+  const isExternalUrl = (url) => {
+    try {
+      return new URL(url, location.origin).origin !== location.origin;
+    } catch {
+      return true;
+    }
+  };
+
+  const currentSection = (() => {
+    if (currentPath.startsWith("/docs")) {
+      return "/docs";
+    }
+    const [segment] = currentPath.split("/").filter(Boolean);
+    return segment ? `/${segment}` : "/";
+  })();
+
+  const isNavLinkActive = (link) => {
+    if (!link?.url || isExternalUrl(link.url)) {
+      return false;
+    }
+    return currentSection === "/docs"
+      ? link.url === "/docs"
+      : link.url === currentSection;
+  };
+
   const readVersionFromPath = () => {
-    if (!location.pathname.startsWith(DOCS_PREFIX)) {
+    if (!currentPath.startsWith(DOCS_PREFIX)) {
       return null;
     }
-    const rel = location.pathname.slice(DOCS_PREFIX.length);
+    const rel = currentPath.slice(DOCS_PREFIX.length);
     const [segment] = rel.split("/");
     if (!segment) {
       return null;
@@ -128,6 +146,10 @@
         const a = document.createElement("a");
         a.href = link.url;
         a.textContent = link.text;
+        if (isNavLinkActive(link)) {
+          a.classList.add("is-active");
+          a.setAttribute("aria-current", "page");
+        }
         li.appendChild(a);
         navRoot.appendChild(li);
       }
@@ -165,18 +187,19 @@
           item.role = "none";
           item.dataset.version = option.version;
 
-          const button = document.createElement("button");
-          button.type = "button";
-          button.role = "option";
-          button.className = "envoy-docs-banner__item";
-          button.id = `envoy-docs-banner-option-${option.version.replaceAll(".", "-")}`;
+          const optionLink = document.createElement("a");
+          optionLink.href = buildVersionLink(option.version);
+          optionLink.role = "option";
+          optionLink.className = "envoy-docs-banner__item";
+          optionLink.id = `envoy-docs-banner-option-${option.version.replaceAll(".", "-")}`;
+          optionLink.tabIndex = index === activeIndex ? 0 : -1;
           if (index === activeIndex) {
-            button.classList.add("is-active");
+            optionLink.classList.add("is-active");
           }
-          button.setAttribute("aria-selected", index === activeIndex ? "true" : "false");
+          optionLink.setAttribute("aria-selected", index === activeIndex ? "true" : "false");
           if (normalizeVersion(option.version) === currentVersion) {
-            button.classList.add("is-current");
-            button.setAttribute("aria-current", "true");
+            optionLink.classList.add("is-current");
+            optionLink.setAttribute("aria-current", "page");
           }
 
           const label = document.createElement("span");
@@ -192,14 +215,10 @@
             ? "archived"
             : "dev";
 
-          button.appendChild(label);
-          button.appendChild(meta);
-          button.addEventListener(
-            "click",
-            () => navigateTo(option.version),
-            { signal: controller.signal },
-          );
-          item.appendChild(button);
+          optionLink.appendChild(label);
+          optionLink.appendChild(meta);
+          optionLink.addEventListener("click", () => closeMenu({ restoreFocus: false }));
+          item.appendChild(optionLink);
           list.appendChild(item);
         });
 
@@ -214,14 +233,20 @@
         queryValue.textContent = filterText;
       };
 
-      const closeMenu = () => {
+      const closeMenu = ({ restoreFocus = true } = {}) => {
         isOpen = false;
         filterText = "";
         activeIndex = 0;
+        if (clearFilterTimer) {
+          clearTimeout(clearFilterTimer);
+          clearFilterTimer = null;
+        }
         versionButton.setAttribute("aria-expanded", "false");
         menu.hidden = true;
         renderList();
-        versionButton.focus();
+        if (restoreFocus) {
+          versionButton.focus();
+        }
       };
 
       const focusActiveOption = () => {
@@ -237,11 +262,6 @@
         focusActiveOption();
       };
 
-      const navigateTo = async (targetVersion) => {
-        closeMenu();
-        location.assign(buildVersionLink(targetVersion));
-      };
-
       versionButton.addEventListener("click", () => {
         if (isOpen) {
           closeMenu();
@@ -255,9 +275,9 @@
           return;
         }
         if (event.target instanceof Node && !banner.contains(event.target)) {
-          closeMenu();
+          closeMenu({ restoreFocus: false });
         }
-      }, { signal: controller.signal });
+      });
 
       document.addEventListener("keydown", (event) => {
         if (
@@ -287,6 +307,7 @@
           event.preventDefault();
           activeIndex = visible.length ? (activeIndex + 1) % visible.length : 0;
           renderList();
+          focusActiveOption();
           return;
         }
 
@@ -296,14 +317,15 @@
             ? (activeIndex - 1 + visible.length) % visible.length
             : 0;
           renderList();
+          focusActiveOption();
           return;
         }
 
         if (event.key === "Enter") {
           event.preventDefault();
-          const selected = visible[activeIndex];
-          if (selected) {
-            navigateTo(selected.version);
+          const selected = list.querySelector(".envoy-docs-banner__item.is-active");
+          if (selected instanceof HTMLElement) {
+            selected.click();
           }
           return;
         }
@@ -313,6 +335,7 @@
           filterText = filterText.slice(0, -1);
           activeIndex = 0;
           renderList();
+          focusActiveOption();
           return;
         }
 
@@ -328,6 +351,7 @@
           filterText += filterKey.replace(/^v$/, "");
           activeIndex = 0;
           renderList();
+          focusActiveOption();
           if (clearFilterTimer) {
             clearTimeout(clearFilterTimer);
           }
@@ -337,9 +361,12 @@
             renderList();
           }, 1000);
         }
-      }, { signal: controller.signal });
+      });
 
       document.querySelector(".envoy-docs-banner")?.remove();
+      document.body.classList.add("envoy-has-site-banner");
+      document.body.classList.toggle("envoy-shell-topbar", document.querySelector(".envoy-doc-topbar") !== null);
+      document.body.classList.toggle("envoy-shell-rtd", document.querySelector(".envoy-doc-topbar") === null);
       const mountPoint = document.getElementById("envoy-docs-banner") || banner;
       if (mountPoint === banner) {
         document.body.prepend(banner);

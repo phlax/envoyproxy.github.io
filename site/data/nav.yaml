@@ -1,14 +1,19 @@
-- text: Github
+- id: github
+  text: Github
   url: https://github.com/envoyproxy/envoy
 
-- text: Docs
+- id: documentation
+  text: Docs
   url: /docs
 
-- text: Blog
+- id: blog
+  text: Blog
   url: https://blog.envoyproxy.io
 
-- text: Community
+- id: community
+  text: Community
   url: /community
 
-- text: Training
+- id: training
+  text: Training
   url: /training

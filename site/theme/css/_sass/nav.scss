@@ -17,6 +17,14 @@
         font-weight: bold;
         font-size: 18px;
         padding: 0 10px;
+        opacity: 0.85;
+        border-bottom: 3px solid transparent;
+      }
+
+      a.is-active,
+      a[aria-current="page"] {
+        opacity: 1;
+        border-bottom-color: #e83e8c;
       }
 
     }
