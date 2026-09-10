@@ -341,9 +341,12 @@
 
         if (event.key === "Enter") {
           event.preventDefault();
-          const selected = list.querySelector(".envoy-docs-banner__item.is-active");
-          if (selected instanceof HTMLElement) {
-            selected.click();
+          const selected = visible[activeIndex];
+          const selectedLink = selected
+            ? document.getElementById(`envoy-docs-banner-option-${selected.version.replaceAll(".", "-")}`)
+            : null;
+          if (selectedLink instanceof HTMLElement) {
+            selectedLink.click();
           }
           return;
         }
@@ -379,12 +382,13 @@
             renderList();
           }, 1000);
         }
-      });
+      }, { signal: controller.signal });
 
       document.querySelector(".envoy-docs-banner")?.remove();
       document.body.classList.add("envoy-has-site-banner");
-      document.body.classList.toggle("envoy-shell-topbar", document.querySelector(".envoy-doc-topbar") !== null);
-      document.body.classList.toggle("envoy-shell-rtd", document.querySelector(".envoy-doc-topbar") === null);
+      const hasTopbarShell = document.querySelector(".envoy-doc-topbar") !== null;
+      document.body.classList.toggle("envoy-shell-topbar", hasTopbarShell);
+      document.body.classList.toggle("envoy-shell-rtd", !hasTopbarShell);
       const mountPoint = document.getElementById("envoy-docs-banner") || banner;
       if (mountPoint === banner) {
         document.body.prepend(banner);
