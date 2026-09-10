@@ -359,8 +359,9 @@
           const selectedLink = selected
             ? document.getElementById(`envoy-docs-banner-option-${selected.version.replaceAll(".", "-")}`)
             : null;
-          if (selectedLink instanceof HTMLElement) {
-            selectedLink.click();
+          if (selectedLink instanceof HTMLAnchorElement) {
+            closeMenu({ restoreFocus: false });
+            location.assign(selectedLink.href);
           }
           return;
         }
