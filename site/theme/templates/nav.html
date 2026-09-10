@@ -12,7 +12,7 @@
       <ul class="container-fluid">
         {% for link in NAV %}
         <li>
-          <a href="{{ link.url }}"{% if active_page == link.id or (link.url.startswith('/') and (output_file == link.url.lstrip('/') ~ '.html' or output_file == link.url.lstrip('/') or output_file.startswith(link.url.lstrip('/') ~ '/'))) %} class="is-active" aria-current="page"{% endif %}>{{ link.text }}</a>
+          <a href="{{ link.url }}"{% if active_page == link.id or ((not active_page) and link.url.startswith('/') and (output_file == link.url.lstrip('/') ~ '.html' or output_file == link.url.lstrip('/') or output_file.startswith(link.url.lstrip('/') ~ '/'))) %} class="is-active" aria-current="page"{% endif %}>{{ link.text }}</a>
         </li>
         {% endfor %}
       </ul>
