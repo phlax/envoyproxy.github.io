@@ -29,6 +29,8 @@ import type { Context } from "https://edge.netlify.com";
 const ARCHIVE_BUCKET = "envoy-cncf-archive";
 const ARCHIVE_ORIGIN = `https://storage.googleapis.com/${ARCHIVE_BUCKET}/envoy/docs`;
 const SITE_PREFIX = "/docs/envoy/";
+const JUMP_PREFIX = "_jump/";
+const JUMP_PROBE_HEADER = "x-envoy-docs-probe";
 const CDN_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800";
 const escapeHtmlAttribute = (value: string) =>
   value.replaceAll("&", "&amp;")
@@ -85,8 +87,8 @@ const injectIntoHead = (html: string, snippet: string): string => {
   return `${html.slice(0, idx)}${snippet}${html.slice(idx)}`;
 };
 
-const cachedRedirect = (url: string): Response => {
-  const response = Response.redirect(url, 301);
+const cachedRedirect = (url: string, status = 301): Response => {
+  const response = Response.redirect(url, status);
   const headers = new Headers(response.headers);
   headers.set("netlify-cdn-cache-control", CDN_CACHE_CONTROL);
   return new Response(response.body, {
@@ -136,8 +138,90 @@ export default async (request: Request, context: Context) => {
     return context.next();
   }
 
+  if (request.method === "HEAD" && request.headers.get(JUMP_PROBE_HEADER) === "1") {
+    return context.next();
+  }
+
   const rel = url.pathname.slice(SITE_PREFIX.length);
   const version = rel.split("/", 1)[0];
+
+  if (rel.startsWith(JUMP_PREFIX)) {
+    const jumpRel = rel.slice(JUMP_PREFIX.length);
+    const slash = jumpRel.indexOf("/");
+    const targetVersion = slash < 0 ? jumpRel : jumpRel.slice(0, slash);
+    const rawRelPath = slash < 0 ? "" : jumpRel.slice(slash + 1).replace(/^\/+/, "");
+    if (!(targetVersion === "latest" || isArchiveVersion(targetVersion))) {
+      return context.next();
+    }
+
+    const strippedRelPath = rawRelPath
+      .replace(/\/index\.html$/, "/")
+      .replace(/\.html$/, "");
+    const buildTiers = (path: string): string[] => {
+      if (!path) return [""];
+      const tiers: string[] = [];
+      let current = path;
+      while (true) {
+        tiers.push(current);
+        if (!current) break;
+        if (current.endsWith("/")) {
+          const withoutSlash = current.slice(0, -1);
+          const idx = withoutSlash.lastIndexOf("/");
+          current = idx < 0 ? "" : withoutSlash.slice(0, idx + 1);
+        } else {
+          const idx = current.lastIndexOf("/");
+          current = idx < 0 ? "" : current.slice(0, idx + 1);
+        }
+      }
+      return tiers;
+    };
+
+    const candidateObjectPaths = (tier: string): string[] => {
+      if (!tier) return ["index.html"];
+      if (tier.endsWith("/")) return [`${tier}index.html`];
+      if (hasExtension(tier)) return [tier];
+      return [`${tier}.html`, `${tier}/index.html`];
+    };
+
+    const headExists = async (objectPath: string): Promise<boolean> => {
+      const targetUrl = targetVersion === "latest"
+        ? `${url.origin}${SITE_PREFIX}latest/${objectPath}`
+        : `${ARCHIVE_ORIGIN}/${targetVersion}/${objectPath}`;
+      try {
+        const headers = new Headers();
+        if (targetVersion === "latest") {
+          headers.set(JUMP_PROBE_HEADER, "1");
+        }
+        const probe = await fetch(targetUrl, { method: "HEAD", headers });
+        return probe.ok;
+      } catch {
+        return false;
+      }
+    };
+
+    const tiers = buildTiers(strippedRelPath);
+    const tierResults = await Promise.all(
+      tiers.map(async (tier) => {
+        const candidates = candidateObjectPaths(tier);
+        const checks = await Promise.all(candidates.map((candidate) => headExists(candidate)));
+        const hitIndex = checks.findIndex((exists) => exists);
+        if (hitIndex < 0) return null;
+        return { hit: candidates[hitIndex] };
+      }),
+    );
+
+    const best = tierResults.find((result) => result !== null);
+    const bestObjectPath = best?.hit ?? "index.html";
+    const prettyPath = bestObjectPath === "index.html"
+      ? ""
+      : bestObjectPath.endsWith("/index.html")
+      ? bestObjectPath.slice(0, -"index.html".length)
+      : bestObjectPath.endsWith(".html")
+      ? bestObjectPath.slice(0, -".html".length)
+      : bestObjectPath;
+    url.pathname = `${SITE_PREFIX}${targetVersion}/${prettyPath}`;
+    return cachedRedirect(url.toString(), 302);
+  }
 
   if (version === "latest") {
     const latestRel = rel.slice("latest".length).replace(/^\//, "");
